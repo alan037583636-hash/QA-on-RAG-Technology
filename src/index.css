@@ -40,6 +40,7 @@ button, input { font: inherit; }
 .hero h1 { margin: 10px 0 6px; color: #17243a; font-size: 25px; line-height: 1.25; letter-spacing: -.045em; }
 .hero h1 span { margin-left: 9px; color: #71809a; font-size: 14px; font-weight: 500; letter-spacing: 0; }
 .hero-copy > p { margin: 0; color: #71809a; font-size: 12px; }
+.hero-copy > .rag-concept { margin-top: 10px; padding: 11px 13px; border: 1px solid #e5eaf1; border-radius: 8px; color: #526176; background: #f1f5f9; font-size: 10px; line-height: 1.75; }
 .tech-tags { display: flex; gap: 7px; margin-top: 15px; }
 .tech-tags .fui-Badge { height: 21px; padding: 0 8px; color: #5574ad; background: #f6f9ff; border-color: #dce6f6; font-size: 9px; }
 .hero-side { display: flex; min-width: 440px; flex-direction: column; align-items: flex-end; justify-content: center; gap: 8px; }
@@ -53,6 +54,17 @@ button, input { font: inherit; }
 .level-button > span:first-child { display: grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; color: #6f82a2; background: #edf2fa; font: 700 8px ui-monospace, monospace; }
 .level-button.active { color: #2152bd; border-color: #b7c9f0; background: #f5f8ff; }
 .level-button.active > span:first-child { color: white; background: #3264ce; }
+.scenario-nav { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; margin-top: 10px; overflow-x: auto; padding: 1px 1px 4px; }
+.scenario-button { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #dfe6f0; border-radius: 8px; color: #64748b; background: #fff; text-align: left; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.scenario-button:hover { border-color: #a9bee9; background: #f7f9ff; }
+.scenario-button.active { border-color: #8eabe4; color: #2457d6; background: #f1f5ff; box-shadow: inset 0 0 0 1px #dce6fc; }
+.scenario-number { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border-radius: 7px; color: #6f82a2; background: #edf2fa; font: 700 10px ui-monospace, monospace; }
+.scenario-button.active .scenario-number { color: #fff; background: #3264ce; }
+.scenario-label { display: grid; min-width: 0; gap: 3px; }
+.scenario-label strong { overflow: hidden; color: inherit; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.scenario-label small { overflow: hidden; color: #8996a9; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.scenario-description { margin: 5px 2px 0; color: #71809a; font-size: 10px; line-height: 1.6; }
+.scenario-description strong { color: #4265a7; }
 .run-status { align-self: flex-end; color: #16845b; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
 .run-status .live-dot { margin-right: 5px; width: 6px; height: 6px; }
 .hero-stats { display: flex; justify-content: space-between; margin-top: 16px; }
@@ -236,6 +248,7 @@ button, input { font: inherit; }
   .support-grid { grid-template-columns: 1fr 1fr; }
   .prompt-panel { grid-column: 1 / -1; }
   .hero:after { right: 180px; }
+  .scenario-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 800px) {
   .topbar { padding: 0 20px; }
@@ -261,6 +274,7 @@ button, input { font: inherit; }
   .tech-tags { flex-wrap: wrap; }
   .hero-side { min-width: 0; align-items: flex-start; margin-top: 16px; }
   .level-nav { justify-content: flex-start; }
+  .scenario-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .run-status { position: absolute; top: -3px; right: 0; }
   .hero-stats { max-width: 270px; margin-top: 0; }
   .hero-footnote { position: absolute; right: 0; bottom: 3px; }

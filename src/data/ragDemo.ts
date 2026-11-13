@@ -6,7 +6,75 @@ export type KnowledgeDocument = {
   selected: boolean
 }
 
-export const question = '新人報到需要準備什麼？第一天幾點集合？'
+export type TrainingScenario = {
+  id: number
+  title: string
+  subtitle: string
+  question: string
+  k: number
+  description: string
+}
+
+export const scenarios: TrainingScenario[] = [
+  {
+    id: 1,
+    title: '基本',
+    subtitle: '完整流程',
+    question: '請問新人報到時間是幾點？',
+    k: 2,
+    description: '最標準的檢索，精準配對到 D1。',
+  },
+  {
+    id: 2,
+    title: '換句話',
+    subtitle: '字面不同',
+    question: '中午跟晚上什麼時候可以去吃飯？',
+    k: 2,
+    description: '字面上沒有「餐廳」或「供餐」，但向量相似度能抓到 D4。',
+  },
+  {
+    id: 3,
+    title: '滿分',
+    subtitle: '第一名滿分',
+    question: '廠區可以帶有照相功能的手機嗎？',
+    k: 2,
+    description: '與 D2 高度吻合，相似度極高。',
+  },
+  {
+    id: 4,
+    title: '無關',
+    subtitle: '什麼都沒找到',
+    question: '台積電股票今天多少錢？',
+    k: 2,
+    description: '相似度極低，全部被 Threshold 淘汰，回傳「找不到資料」。',
+  },
+  {
+    id: 5,
+    title: '有資料沒答案',
+    subtitle: '相關但沒寫',
+    question: '請問員工餐廳有提供素食嗎？',
+    k: 2,
+    description: '能檢索到 D4，但資料內未提及素食，LLM 應回答「資料未提及」。',
+  },
+  {
+    id: 6,
+    title: 'k=1',
+    subtitle: '資料不夠',
+    question: '請問接駁車多久一班？機車停車要錢嗎？',
+    k: 1,
+    description: '問題包含兩個考點，但 k=1 只能抓到 D8 或 D7 其中一個，導致 LLM 回答不完整。',
+  },
+  {
+    id: 7,
+    title: 'k=2',
+    subtitle: '資料剛好',
+    question: '請問接駁車多久一班？機車停車要錢嗎？',
+    k: 2,
+    description: '同樣的問題，將 k 設為 2 後，D7 與 D8 皆入選，LLM 能給出完整答案。',
+  },
+]
+
+export const question = scenarios[0].question
 
 export const questionVector = [
   ['報到', 0.92],

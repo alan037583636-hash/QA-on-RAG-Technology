@@ -4,12 +4,14 @@ A frontend-only React + TypeScript training demo for a mock retrieval-augmented 
 
 ## Component structure
 
-- `DemoHeader`: RAG introduction, complexity tags, mode, K selector, and seven levels.
+- `DemoHeader`: RAG concept explanation, complexity tags, mode, K selector, and seven interactive scenarios.
 - `QueryVectorPanel`: sample question and its eight mock dimension scores.
 - `KnowledgeBasePanel`: all ten source documents with similarity and Top-K status.
 - `RetrievalResults`: grounded answer and no-RAG hallucination comparison.
 - `DashboardPanel`, `ExecutionLogPanel`, `MinHeapPanel`, and `PromptPanel`: retrieval metrics and internal flow.
 - `src/data/ragDemo.ts`: shared mock corpus, vector values, sample answers, prompt inputs, and log data.
+
+Selecting a scenario updates the question input and K value. Editing the question manually clears the selected scenario indicator.
 
 ## Run locally
 

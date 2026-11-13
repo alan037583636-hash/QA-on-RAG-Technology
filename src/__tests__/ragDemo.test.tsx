@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../App'
 import { documents } from '../data/ragDemo'
+
+afterEach(cleanup)
 
 describe('RAG training demo', () => {
   it('renders the Chinese onboarding RAG walkthrough and all ten source documents', () => {
@@ -35,5 +37,19 @@ describe('RAG training demo', () => {
     for (let level = 1; level <= 7; level += 1) {
       expect(screen.getByRole('button', { name: new RegExp(`^${level}`) })).toBeInTheDocument()
     }
+  })
+
+  it('updates the question and K value when a scenario is selected', () => {
+    render(<App />)
+    const questionInput = screen.getByRole('textbox', { name: '你的問題' })
+    const kSelect = screen.getByRole('combobox', { name: 'K 值' })
+
+    fireEvent.click(screen.getByRole('button', { name: /6 k=1 資料不夠/ }))
+    expect(questionInput).toHaveValue('請問接駁車多久一班？機車停車要錢嗎？')
+    expect(kSelect).toHaveValue('1')
+
+    fireEvent.click(screen.getByRole('button', { name: /7 k=2 資料剛好/ }))
+    expect(questionInput).toHaveValue('請問接駁車多久一班？機車停車要錢嗎？')
+    expect(kSelect).toHaveValue('2')
   })
 })

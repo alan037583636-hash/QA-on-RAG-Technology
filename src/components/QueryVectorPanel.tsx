@@ -1,8 +1,13 @@
 import { Button, Input } from '@fluentui/react-components'
 import { ArrowUpRight20Regular, Sparkle20Regular } from '@fluentui/react-icons'
-import { question, questionVector } from '../data/ragDemo'
+import { questionVector } from '../data/ragDemo'
 
-export default function QueryVectorPanel() {
+type QueryVectorPanelProps = {
+  question: string
+  onQuestionChange: (value: string) => void
+}
+
+export default function QueryVectorPanel({ question, onQuestionChange }: QueryVectorPanelProps) {
   return (
     <section className="panel bg-white shadow-sm query-panel">
       <div className="panel-heading">
@@ -12,7 +17,13 @@ export default function QueryVectorPanel() {
       </div>
       <label className="field-label" htmlFor="question">自己問</label>
       <div className="query-input-row">
-        <Input id="question" className="query-input" defaultValue={question} aria-label="你的問題" />
+        <Input
+          id="question"
+          className="query-input"
+          value={question}
+          onChange={(_, data) => onQuestionChange(data.value)}
+          aria-label="你的問題"
+        />
         <Button appearance="primary" icon={<ArrowUpRight20Regular />} aria-label="開始檢索">開始檢索</Button>
       </div>
       <div className="vector-heading">
