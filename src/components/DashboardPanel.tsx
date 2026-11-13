@@ -1,0 +1,25 @@
+import { ArrowTrending20Regular, Database20Regular, DocumentBulletList20Regular, Filter20Regular } from '@fluentui/react-icons'
+
+const metrics = [
+  { icon: <DocumentBulletList20Regular />, label: '已比對數量', value: '10', unit: '筆', note: '知識庫文件' },
+  { icon: <ArrowTrending20Regular />, label: '最高分', value: '0.96', unit: '', note: 'D1 相似度' },
+  { icon: <Filter20Regular />, label: 'K 值設定', value: '02', unit: '筆', note: 'Top-K 容量' },
+  { icon: <Database20Regular />, label: '被擠掉數量', value: '08', unit: '筆', note: '未進入 Top-K' },
+]
+
+export default function DashboardPanel() {
+  return (
+    <section className="dashboard">
+      <div className="section-title"><div><span className="section-kicker">OVERVIEW</span><h2>數據儀表板</h2></div><span className="updated-label"><i /> DEMO DATA</span></div>
+      <div className="metric-grid">
+        {metrics.map((metric) => (
+          <article className="metric-card" key={metric.label}>
+            <div className="metric-top"><span className="metric-icon">{metric.icon}</span><span className="metric-note">{metric.note}</span></div>
+            <div className="metric-value">{metric.value}<small>{metric.unit}</small></div>
+            <div className="metric-label">{metric.label}</div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
