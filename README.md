@@ -24,3 +24,9 @@ npm run dev
 npm test
 npm run build
 ```
+
+## Deploy to GitHub Pages
+
+Every push to `main` runs the tests, builds the app into `dist/`, and deploys that build to GitHub Pages. The workflow is in `.github/workflows/deploy.yml`; Vite uses the repository path automatically for project pages.
+
+In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. The first deployment then publishes the generated `dist/` artifact instead of serving `index.html` from the source tree.
