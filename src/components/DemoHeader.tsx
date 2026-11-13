@@ -4,6 +4,7 @@ import { scenarios, type TrainingScenario } from '../data/ragDemo'
 type DemoHeaderProps = {
   activeScenarioId: number | null
   k: number
+  isSearching: boolean
   onKChange: (value: number) => void
   onScenarioSelect: (scenario: TrainingScenario) => void
 }
@@ -11,6 +12,7 @@ type DemoHeaderProps = {
 export default function DemoHeader({
   activeScenarioId,
   k,
+  isSearching,
   onKChange,
   onScenarioSelect,
 }: DemoHeaderProps) {
@@ -57,6 +59,7 @@ export default function DemoHeader({
                 id="k-value"
                 value={k}
                 className="k-select"
+                disabled={isSearching}
                 onChange={(event) => onKChange(Number(event.currentTarget.value))}
               >
                 {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
@@ -71,6 +74,7 @@ export default function DemoHeader({
               className={`scenario-button ${activeScenarioId === scenario.id ? 'active' : ''}`}
               key={scenario.id}
               aria-pressed={activeScenarioId === scenario.id}
+              disabled={isSearching}
               onClick={() => onScenarioSelect(scenario)}
             >
               <span className="scenario-number">{scenario.id}</span>

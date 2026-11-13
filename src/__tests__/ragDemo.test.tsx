@@ -1,10 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../App'
 import { documents, scenarios, vectorDimensions } from '../data/ragDemo'
 import { cosineSimilarity, embedQuestion, runRetrieval } from '../data/ragEngine'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 describe('RAG training demo', () => {
   it('renders the Chinese onboarding RAG walkthrough and all ten source documents', () => {
@@ -41,18 +44,43 @@ describe('RAG training demo', () => {
     }
   })
 
-  it('updates the question and K value when a scenario is selected', () => {
+  it('updates the question and K value and locks controls during an animated scenario search', async () => {
+    vi.useFakeTimers()
     render(<App />)
     const questionInput = screen.getByRole('textbox', { name: '你的問題' })
     const kSelect = screen.getByRole('combobox', { name: 'K 值' })
+    const startButton = screen.getByRole('button', { name: '開始檢索' })
 
     fireEvent.click(screen.getByRole('button', { name: /6 k=1 資料不夠/ }))
     expect(questionInput).toHaveValue('請問接駁車多久一班？機車停車要錢嗎？')
     expect(kSelect).toHaveValue('1')
+    expect(startButton).toBeDisabled()
+    expect(screen.queryAllByText('待篩選')).toHaveLength(0)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200)
+    })
+    const list = screen.getByLabelText('知識庫文件清單')
+    expect(within(list).getAllByText('待篩選')).toHaveLength(10)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(screen.getAllByText('RANK')).toHaveLength(2)
+
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(startButton).toBeEnabled()
+    expect(within(list).getAllByText('採用')).toHaveLength(1)
 
     fireEvent.click(screen.getByRole('button', { name: /7 k=2 資料剛好/ }))
     expect(questionInput).toHaveValue('請問接駁車多久一班？機車停車要錢嗎？')
     expect(kSelect).toHaveValue('2')
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(within(list).getAllByText('採用')).toHaveLength(2)
   })
 
   it('calculates cosine similarity and retrieves D4 for the rephrased meal question', () => {
@@ -83,9 +111,13 @@ describe('RAG training demo', () => {
     expect(enoughContext.selectedDocuments.map(({ document }) => document.id)).toEqual(['D8', 'D7'])
   })
 
-  it('updates vector, document scores, and execution log when a scenario runs', () => {
+  it('updates vector, document scores, and execution log when a scenario runs', async () => {
+    vi.useFakeTimers()
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: /2 換句話 字面不同/ }))
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
 
     const list = screen.getByLabelText('知識庫文件清單')
     const d4Card = within(list).getByText('D4').closest('.document-card')
@@ -97,14 +129,19 @@ describe('RAG training demo', () => {
     expect(screen.getByText(/組合問題與 D4 作為參考資料/)).toBeInTheDocument()
     expect(screen.getByText(/D4 分數 .*加入最小堆/)).toBeInTheDocument()
     expect(document.querySelector('.prompt-content')).toHaveTextContent('[D4]')
+    expect(document.querySelector('.answer-reference')).toHaveTextContent('D4')
   })
 
-  it('recomputes the retrieval after clicking the search button', () => {
+  it('recomputes the retrieval after clicking the search button', async () => {
+    vi.useFakeTimers()
     render(<App />)
     fireEvent.change(screen.getByRole('textbox', { name: '你的問題' }), {
       target: { value: '中午跟晚上什麼時候可以去吃飯？' },
     })
     fireEvent.click(screen.getByRole('button', { name: '開始檢索' }))
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
 
     const list = screen.getByLabelText('知識庫文件清單')
     expect(within(list).getByText('D4').closest('.document-card')).toHaveClass('is-selected')

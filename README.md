@@ -12,7 +12,7 @@ A frontend-only React + TypeScript training demo for a deterministic, keyword-ba
 - `src/data/ragDemo.ts`: shared mock corpus, eight-dimensional document vectors, and scenarios.
 - `src/data/ragEngine.ts`: deterministic keyword-vector generation, cosine similarity, thresholding, and min-heap Top-K selection with per-document logs.
 
-Selecting a scenario updates the question input and K value, then runs retrieval. Editing a question requires clicking **開始檢索** to recalculate the vector, similarity scores, Top-K set, prompt, and execution log.
+Selecting a scenario updates the question input and K value, then runs retrieval. Searches play through vectorization, similarity scoring, per-document min-heap steps, Prompt assembly, and a typewritten Mock LLM response. Editing a question requires clicking **開始檢索** to replay the sequence.
 
 ## Run locally
 

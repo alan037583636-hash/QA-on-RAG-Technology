@@ -2,17 +2,18 @@ import { ArrowTrending20Regular, Database20Regular, DocumentBulletList20Regular,
 import { documents } from '../data/ragDemo'
 
 type DashboardPanelProps = {
+  checkedCount: number
+  excludedCount: number
   k: number
   maxScore: number
-  selectedCount: number
 }
 
-export default function DashboardPanel({ k, maxScore, selectedCount }: DashboardPanelProps) {
+export default function DashboardPanel({ checkedCount, excludedCount, k, maxScore }: DashboardPanelProps) {
   const metrics = [
-    { icon: <DocumentBulletList20Regular />, label: '已比對數量', value: documents.length.toString(), unit: '筆', note: '知識庫文件' },
+    { icon: <DocumentBulletList20Regular />, label: '已比對數量', value: checkedCount.toString().padStart(2, '0'), unit: '筆', note: `共 ${documents.length} 筆文件` },
     { icon: <ArrowTrending20Regular />, label: '最高分', value: maxScore.toFixed(2), unit: '', note: '最高 cosine score' },
     { icon: <Filter20Regular />, label: 'K 值設定', value: k.toString().padStart(2, '0'), unit: '筆', note: 'Top-K 容量' },
-    { icon: <Database20Regular />, label: '被擠掉數量', value: (documents.length - selectedCount).toString().padStart(2, '0'), unit: '筆', note: '未進入 Top-K' },
+    { icon: <Database20Regular />, label: '被擠掉數量', value: excludedCount.toString().padStart(2, '0'), unit: '筆', note: '未進入 Top-K' },
   ]
 
   return (

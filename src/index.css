@@ -124,6 +124,7 @@ button, input { font: inherit; }
 .document-status svg { width: 12px; height: 12px; }
 .document-status.adopted { color: #188154; }
 .document-status.rejected { color: #99a3b2; }
+.document-status.pending { color: #8c98a9; }
 .selected-check { width: 14px; height: 14px; margin-left: auto; color: #24a166; }
 .document-card > p { margin: 6px 0 7px; color: #35445c; font-size: 10px; line-height: 1.55; }
 .score-row { display: flex; align-items: center; gap: 7px; color: #8a96a8; font-size: 8px; }
@@ -170,6 +171,8 @@ button, input { font: inherit; }
 .answer-card-top b { color: #6a58af; font: 700 7px ui-monospace, monospace; }
 .answer-card p { margin: 6px 0 0; color: #35445c; font-size: 9px; line-height: 1.6; }
 .answer-card .answer-reference { white-space: pre-line; }
+.typing-cursor { display: inline-block; margin-left: 2px; color: #168154; animation: cursor-blink .8s step-end infinite; }
+@keyframes cursor-blink { 50% { opacity: 0; } }
 .disclaimer { margin-top: 9px; padding: 7px 8px; border-radius: 5px; color: #838fa2; background: #f5f7fb; font-size: 8px; }
 .disclaimer span { margin-right: 4px; color: #6788cf; }
 .dashboard { padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: white; box-shadow: var(--shadow); }

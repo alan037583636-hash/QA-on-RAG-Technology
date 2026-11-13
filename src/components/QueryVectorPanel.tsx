@@ -1,10 +1,11 @@
-import { Button, Input } from '@fluentui/react-components'
+import { Button, Input, Spinner } from '@fluentui/react-components'
 import { ArrowUpRight20Regular, Sparkle20Regular } from '@fluentui/react-icons'
 import { vectorDimensions } from '../data/ragDemo'
 
 type QueryVectorPanelProps = {
   question: string
   queryVector: number[]
+  isSearching: boolean
   onQuestionChange: (value: string) => void
   onSearch: () => void
 }
@@ -12,6 +13,7 @@ type QueryVectorPanelProps = {
 export default function QueryVectorPanel({
   question,
   queryVector,
+  isSearching,
   onQuestionChange,
   onSearch,
 }: QueryVectorPanelProps) {
@@ -28,10 +30,19 @@ export default function QueryVectorPanel({
           id="question"
           className="query-input"
           value={question}
+          disabled={isSearching}
           onChange={(_, data) => onQuestionChange(data.value)}
           aria-label="你的問題"
         />
-        <Button appearance="primary" icon={<ArrowUpRight20Regular />} aria-label="開始檢索" onClick={onSearch}>開始檢索</Button>
+        <Button
+          appearance="primary"
+          icon={isSearching ? <Spinner size="tiny" /> : <ArrowUpRight20Regular />}
+          aria-label={isSearching ? '檢索中' : '開始檢索'}
+          disabled={isSearching}
+          onClick={onSearch}
+        >
+          {isSearching ? '檢索中...' : '開始檢索'}
+        </Button>
       </div>
       <div className="vector-heading">
         <div><span className="tiny-label">QUESTION VECTOR</span><span className="vector-count">8 dimensions</span></div>

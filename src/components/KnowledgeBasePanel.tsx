@@ -5,9 +5,10 @@ import type { RankedDocument } from '../data/ragEngine'
 type KnowledgeBasePanelProps = {
   results: RankedDocument[]
   threshold: number
+  selectionReady: boolean
 }
 
-export default function KnowledgeBasePanel({ results, threshold }: KnowledgeBasePanelProps) {
+export default function KnowledgeBasePanel({ results, threshold, selectionReady }: KnowledgeBasePanelProps) {
   return (
     <section className="panel bg-white shadow-sm knowledge-panel">
       <div className="panel-heading">
@@ -21,10 +22,12 @@ export default function KnowledgeBasePanel({ results, threshold }: KnowledgeBase
             <div className="document-topline">
               <span className="document-id">{doc.id}</span>
               <Badge appearance="tint" color={selected ? 'success' : 'informative'}>{doc.category}</Badge>
-              <span className={`document-status ${selected ? 'adopted' : 'rejected'}`}>
-                {selected && <CheckmarkCircle20Filled aria-hidden="true" />}
-                {selected ? '採用' : '淘汰'}
-              </span>
+              {selectionReady ? (
+                <span className={`document-status ${selected ? 'adopted' : 'rejected'}`}>
+                  {selected && <CheckmarkCircle20Filled aria-hidden="true" />}
+                  {selected ? '採用' : '淘汰'}
+                </span>
+              ) : <span className="document-status pending">待篩選</span>}
             </div>
             <p>{doc.content}</p>
             <div className="score-row">

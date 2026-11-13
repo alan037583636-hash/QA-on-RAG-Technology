@@ -1,33 +1,38 @@
 import { Badge } from '@fluentui/react-components'
 import { ArrowRight20Regular } from '@fluentui/react-icons'
-import type { RankedDocument } from '../data/ragEngine'
 
 type RetrievalResultsProps = {
-  selectedDocuments: RankedDocument[]
-  threshold: number
+  answer: string
+  isGenerating: boolean
+  isPromptReady: boolean
+  isSearching: boolean
 }
 
-export default function RetrievalResults({ selectedDocuments, threshold }: RetrievalResultsProps) {
-  const groundedAnswer = selectedDocuments.length > 0
-    ? selectedDocuments.map(({ document }) => `[${document.id}] ${document.content}`).join('\n')
-    : `找不到相似度達到 ${threshold.toFixed(2)} 門檻的資料，請改寫問題或確認知識庫內容。`
-
+export default function RetrievalResults({ answer, isGenerating, isPromptReady, isSearching }: RetrievalResultsProps) {
   return (
     <section className="panel bg-white shadow-sm results-panel">
       <div className="panel-heading results-heading">
         <div className="heading-icon violet"><ArrowRight20Regular /></div>
         <div><h2>輸出結果</h2><p>有檢索依據與無檢索依據的回答對照</p></div>
-        <Badge appearance="tint" color={selectedDocuments.length > 0 ? 'success' : 'informative'}>
-          {selectedDocuments.length} 篇已選取
-        </Badge>
+        <Badge appearance="tint" color="success">Mock LLM</Badge>
       </div>
       <div className="answer-cards">
         <article className="answer-card with-rag">
           <div className="answer-card-top">
             <span>有 RAG 的回答</span>
-            <span>{selectedDocuments.map(({ document }) => <b key={document.id}>{document.id}</b>)}</span>
           </div>
-          <p className="answer-reference">{groundedAnswer}</p>
+          <p className="answer-reference" aria-live="polite">
+            {answer || (
+              isGenerating
+                ? '正在生成回答...'
+                : isPromptReady
+                  ? '參考資料已組裝，準備生成回答...'
+                  : isSearching
+                    ? '正在逐步檢索知識庫...'
+                    : '按下「開始檢索」以產生回答。'
+            )}
+            {isGenerating && <span className="typing-cursor" aria-hidden="true">▍</span>}
+          </p>
         </article>
         <article className="answer-card without-rag">
           <div className="answer-card-top"><span>沒有 RAG 的回答 (幻覺示範)</span></div>

@@ -37,6 +37,31 @@ export type RetrievalRun = {
   threshold: number
 }
 
+export type RetrievalAnalysis = {
+  question: string
+  queryVector: number[]
+  scoredDocuments: RankedDocument[]
+  k: number
+  maxScore: number
+  threshold: number
+}
+
+export type RetrievalProgressStep = {
+  log: ExecutionStep
+  checkedCount: number
+  maxScore: number
+  heap: RankedDocument[]
+}
+
+export type RetrievalPlan = {
+  steps: RetrievalProgressStep[]
+  results: RankedDocument[]
+  selectedDocuments: RankedDocument[]
+  heap: RankedDocument[]
+  promptLog: ExecutionStep
+  doneLog: ExecutionStep
+}
+
 export function embedQuestion(question: string): number[] {
   const normalizedQuestion = question.toLocaleLowerCase()
   const vector = dimensionKeywords.map((keywords) =>
@@ -71,20 +96,54 @@ export function cosineSimilarity(left: readonly number[], right: readonly number
   return dotProduct / Math.sqrt(leftMagnitudeSquared * rightMagnitudeSquared)
 }
 
-export function runRetrieval(question: string, requestedK: number): RetrievalRun {
+export function scoreDocuments(
+  question: string,
+  queryVector: number[],
+  requestedK: number,
+): RetrievalAnalysis {
   const k = Math.max(1, Math.floor(requestedK))
-  const queryVector = embedQuestion(question)
   const scoredDocuments = documents.map((document) => ({
     document,
     score: cosineSimilarity(queryVector, document.vector),
     selected: false,
   }))
-  const heap: RankedDocument[] = []
-  const logs: ExecutionStep[] = []
+  const maxScore = Math.max(0, ...scoredDocuments.map(({ score }) => score))
 
-  const addLog = (title: ExecutionStep['title'], detail: string) => {
-    logs.push({ time: `${(logs.length * 0.012).toFixed(3)}s`, title, detail })
+  return {
+    question,
+    queryVector,
+    scoredDocuments,
+    k,
+    maxScore,
+    threshold: SIMILARITY_THRESHOLD,
   }
+}
+
+export function analyzeQuestion(question: string, requestedK: number): RetrievalAnalysis {
+  return scoreDocuments(question, embedQuestion(question), requestedK)
+}
+
+export function* simulateTopK(
+  scoredDocuments: RankedDocument[],
+  requestedK: number,
+): Generator<RetrievalProgressStep, Omit<RetrievalPlan, 'steps'>> {
+  const k = Math.max(1, Math.floor(requestedK))
+  const heap: RankedDocument[] = []
+  let checkedCount = 0
+  let maxScore = 0
+  let elapsedSteps = 0
+
+  const createLog = (title: ExecutionStep['title'], detail: string): ExecutionStep => {
+    const log = { time: `${(elapsedSteps * 0.012).toFixed(3)}s`, title, detail }
+    elapsedSteps += 1
+    return log
+  }
+  const createProgressStep = (title: ExecutionStep['title'], detail: string): RetrievalProgressStep => ({
+      log: createLog(title, detail),
+      checkedCount,
+      maxScore,
+      heap: [...heap],
+  })
   const swap = (first: number, second: number) => {
     const firstItem = heap[first]
     const secondItem = heap[second]
@@ -123,18 +182,25 @@ export function runRetrieval(question: string, requestedK: number): RetrievalRun
     }
   }
 
-  addLog('RANK', `將問題轉為 ${vectorDimensions.length} 維向量，開始比對 ${documents.length} 筆文件。`)
+  yield createProgressStep('RANK', `開始將 ${documents.length} 筆文件放入容量 ${k} 的最小堆進行比對。`)
 
-  for (const candidate of scoredDocuments) {
+  const candidates = [...scoredDocuments].sort(
+    (left, right) => left.document.id.localeCompare(right.document.id, undefined, { numeric: true }),
+  )
+
+  for (const candidate of candidates) {
+    checkedCount += 1
+    maxScore = Math.max(maxScore, candidate.score)
+
     if (candidate.score < SIMILARITY_THRESHOLD) {
-      addLog('SKIP', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)} 低於門檻 ${SIMILARITY_THRESHOLD.toFixed(2)}。`)
+      yield createProgressStep('SKIP', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)} 低於門檻 ${SIMILARITY_THRESHOLD.toFixed(2)}。`)
       continue
     }
 
     if (heap.length < k) {
       heap.push(candidate)
       siftUp(heap.length - 1)
-      addLog('PASS', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)}，加入最小堆。`)
+      yield createProgressStep('PASS', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)}，加入最小堆。`)
       continue
     }
 
@@ -142,9 +208,9 @@ export function runRetrieval(question: string, requestedK: number): RetrievalRun
     if (root && candidate.score > root.score) {
       heap[0] = candidate
       siftDown(0)
-      addLog('SWAP', `${candidate.document.id} (${candidate.score.toFixed(2)}) 取代堆頂 ${root.document.id} (${root.score.toFixed(2)})。`)
+      yield createProgressStep('SWAP', `${candidate.document.id} (${candidate.score.toFixed(2)}) 取代堆頂 ${root.document.id} (${root.score.toFixed(2)})。`)
     } else {
-      addLog('SKIP', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)} 未進入目前 Top-K。`)
+      yield createProgressStep('SKIP', `${candidate.document.id} 分數 ${candidate.score.toFixed(2)} 未進入目前 Top-K。`)
     }
   }
 
@@ -153,25 +219,72 @@ export function runRetrieval(question: string, requestedK: number): RetrievalRun
     .sort((left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id))
     .map((result) => ({ ...result, selected: selectedIds.has(result.document.id) }))
   const selectedDocuments = results.filter(({ selected }) => selected)
-  const maxScore = results[0]?.score ?? 0
-
-  addLog(
+  const promptLog = createLog(
     'PROMPT',
     selectedDocuments.length > 0
       ? `組合問題與 ${selectedDocuments.map(({ document }) => document.id).join('、')} 作為參考資料。`
       : '沒有文件通過相似度門檻，Prompt 不包含參考資料。',
   )
-  addLog('DONE', `檢索完成：採用 ${selectedDocuments.length} 筆，未進入 Top-K ${documents.length - selectedDocuments.length} 筆。`)
+  const doneLog = createLog('DONE', `檢索完成：採用 ${selectedDocuments.length} 筆，未進入 Top-K ${documents.length - selectedDocuments.length} 筆。`)
+
+  return { results, selectedDocuments, heap: [...heap], promptLog, doneLog }
+}
+
+export function buildTopKPlan(
+  scoredDocuments: RankedDocument[],
+  requestedK: number,
+): RetrievalPlan {
+  const simulation = simulateTopK(scoredDocuments, requestedK)
+  const steps: RetrievalProgressStep[] = []
+  let outcome = simulation.next()
+
+  while (outcome.done === false) {
+    steps.push(outcome.value)
+    outcome = simulation.next()
+  }
+
+  return { ...outcome.value, steps }
+}
+
+export function mockLlmAnswer(question: string, selectedDocuments: RankedDocument[]): string {
+  if (selectedDocuments.length === 0) {
+    return '找不到符合相似度門檻的資料，請改寫問題或補充知識庫內容。'
+  }
+
+  const documentIds = new Set(selectedDocuments.map(({ document }) => document.id))
+
+  if (question.includes('素食') && documentIds.has('D4')) {
+    return '知識庫提到員工餐廳提供多樣餐點與供餐時間，但未提及是否提供素食。資料未提及，建議向餐廳或人資確認。［D4］'
+  }
+
+  if (question.includes('接駁車') && question.includes('機車')) {
+    const shuttle = selectedDocuments.find(({ document }) => document.id === 'D8')
+    const parking = selectedDocuments.find(({ document }) => document.id === 'D7')
+    return [
+      shuttle && `接駁車每 15 分鐘一班。［${shuttle.document.id}］`,
+      parking && `機車停車免費，但需上網登記。［${parking.document.id}］`,
+      (!shuttle || !parking) && '其餘問題在目前檢索到的資料中沒有答案。',
+    ].filter(Boolean).join(' ')
+  }
+
+  return selectedDocuments
+    .map(({ document }) => `${document.content}［${document.id}］`)
+    .join('\n')
+}
+
+export function runRetrieval(question: string, requestedK: number): RetrievalRun {
+  const analysis = analyzeQuestion(question, requestedK)
+  const plan = buildTopKPlan(analysis.scoredDocuments, analysis.k)
 
   return {
     question,
-    queryVector,
-    results,
-    selectedDocuments,
-    heap: [...heap],
-    logs,
-    k,
-    maxScore,
-    threshold: SIMILARITY_THRESHOLD,
+    queryVector: analysis.queryVector,
+    results: plan.results,
+    selectedDocuments: plan.selectedDocuments,
+    heap: plan.heap,
+    logs: [...plan.steps.map(({ log }) => log), plan.promptLog, plan.doneLog],
+    k: analysis.k,
+    maxScore: analysis.maxScore,
+    threshold: analysis.threshold,
   }
 }
