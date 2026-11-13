@@ -1,13 +1,18 @@
-import { executionSteps, historyItems } from '../data/ragDemo'
+import { historyItems } from '../data/ragDemo'
+import type { ExecutionStep } from '../data/ragEngine'
 
-export default function ExecutionLogPanel() {
+type ExecutionLogPanelProps = {
+  steps: ExecutionStep[]
+}
+
+export default function ExecutionLogPanel({ steps }: ExecutionLogPanelProps) {
   return (
     <section className="panel bg-white shadow-sm detail-panel log-panel">
-      <div className="compact-heading"><div><span className="section-kicker">PIPELINE</span><h2>執行紀錄</h2></div><span className="mock-badge">MOCK LOG</span></div>
+      <div className="compact-heading"><div><span className="section-kicker">PIPELINE</span><h2>執行紀錄</h2></div><span className="mock-badge">LIVE SIMULATION</span></div>
       <div className="execution-log custom-scrollbar" aria-label="檢索動畫歷程">
-        {executionSteps.map((step, index) => (
+        {steps.map((step, index) => (
           <div className="log-entry" key={step.time}>
-            <span className={`log-node ${index === executionSteps.length - 1 ? 'complete' : ''}`} />
+            <span className={`log-node ${index === steps.length - 1 ? 'complete' : ''}`} />
             <span className="log-time">{step.time}</span>
             <div><strong>{step.title}</strong><p>{step.detail}</p></div>
             <span className="log-done">{step.title}</span>

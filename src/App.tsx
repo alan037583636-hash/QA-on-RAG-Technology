@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Beaker20Regular } from '@fluentui/react-icons'
 import { question as initialQuestion, scenarios, type TrainingScenario } from './data/ragDemo'
+import { runRetrieval } from './data/ragEngine'
 import DemoHeader from './components/DemoHeader'
 import QueryVectorPanel from './components/QueryVectorPanel'
 import KnowledgeBasePanel from './components/KnowledgeBasePanel'
@@ -14,11 +15,23 @@ export default function App() {
   const [question, setQuestion] = useState(initialQuestion)
   const [k, setK] = useState(scenarios[0].k)
   const [activeScenarioId, setActiveScenarioId] = useState<number | null>(scenarios[0].id)
+  const [retrieval, setRetrieval] = useState(() => runRetrieval(initialQuestion, scenarios[0].k))
+
+  const executeSearch = (searchQuestion: string, searchK: number) => {
+    setRetrieval(runRetrieval(searchQuestion, searchK))
+  }
 
   const selectScenario = (scenario: TrainingScenario) => {
     setQuestion(scenario.question)
     setK(scenario.k)
     setActiveScenarioId(scenario.id)
+    executeSearch(scenario.question, scenario.k)
+  }
+
+  const changeK = (nextK: number) => {
+    setK(nextK)
+    setActiveScenarioId(null)
+    executeSearch(question, nextK)
   }
 
   return (
@@ -26,7 +39,7 @@ export default function App() {
       <DemoHeader
         activeScenarioId={activeScenarioId}
         k={k}
-        onKChange={setK}
+        onKChange={changeK}
         onScenarioSelect={selectScenario}
       />
       <div className="page-shell workspace">
@@ -34,19 +47,21 @@ export default function App() {
           <div className="left-column">
             <QueryVectorPanel
               question={question}
+              queryVector={retrieval.queryVector}
+              onSearch={() => executeSearch(question, k)}
               onQuestionChange={(value) => {
                 setQuestion(value)
                 setActiveScenarioId(null)
               }}
             />
-            <KnowledgeBasePanel />
-            <RetrievalResults />
+            <KnowledgeBasePanel results={retrieval.results} threshold={retrieval.threshold} />
+            <RetrievalResults selectedDocuments={retrieval.selectedDocuments} threshold={retrieval.threshold} />
           </div>
           <div className="right-column">
-            <DashboardPanel />
-            <ExecutionLogPanel />
-            <MinHeapPanel />
-            <PromptPanel />
+            <DashboardPanel k={retrieval.k} maxScore={retrieval.maxScore} selectedCount={retrieval.selectedDocuments.length} />
+            <ExecutionLogPanel steps={retrieval.logs} />
+            <MinHeapPanel heap={retrieval.heap} k={retrieval.k} />
+            <PromptPanel question={retrieval.question} selectedDocuments={retrieval.selectedDocuments} />
           </div>
         </div>
       </div>

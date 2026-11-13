@@ -1,6 +1,6 @@
 # RAG Playground
 
-A frontend-only React + TypeScript training demo for a mock retrieval-augmented generation flow. All content and scores are local static data; the app does not call an API or persist information.
+A frontend-only React + TypeScript training demo for a deterministic, keyword-based retrieval-augmented generation flow. Embeddings and similarity scores are calculated locally; the app does not call an API or persist information.
 
 ## Component structure
 
@@ -9,9 +9,10 @@ A frontend-only React + TypeScript training demo for a mock retrieval-augmented 
 - `KnowledgeBasePanel`: all ten source documents with similarity and Top-K status.
 - `RetrievalResults`: grounded answer and no-RAG hallucination comparison.
 - `DashboardPanel`, `ExecutionLogPanel`, `MinHeapPanel`, and `PromptPanel`: retrieval metrics and internal flow.
-- `src/data/ragDemo.ts`: shared mock corpus, vector values, sample answers, prompt inputs, and log data.
+- `src/data/ragDemo.ts`: shared mock corpus, eight-dimensional document vectors, and scenarios.
+- `src/data/ragEngine.ts`: deterministic keyword-vector generation, cosine similarity, thresholding, and min-heap Top-K selection with per-document logs.
 
-Selecting a scenario updates the question input and K value. Editing the question manually clears the selected scenario indicator.
+Selecting a scenario updates the question input and K value, then runs retrieval. Editing a question requires clicking **開始檢索** to recalculate the vector, similarity scores, Top-K set, prompt, and execution log.
 
 ## Run locally
 

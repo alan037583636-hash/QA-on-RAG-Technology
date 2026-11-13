@@ -1,13 +1,20 @@
 import { Button, Input } from '@fluentui/react-components'
 import { ArrowUpRight20Regular, Sparkle20Regular } from '@fluentui/react-icons'
-import { questionVector } from '../data/ragDemo'
+import { vectorDimensions } from '../data/ragDemo'
 
 type QueryVectorPanelProps = {
   question: string
+  queryVector: number[]
   onQuestionChange: (value: string) => void
+  onSearch: () => void
 }
 
-export default function QueryVectorPanel({ question, onQuestionChange }: QueryVectorPanelProps) {
+export default function QueryVectorPanel({
+  question,
+  queryVector,
+  onQuestionChange,
+  onSearch,
+}: QueryVectorPanelProps) {
   return (
     <section className="panel bg-white shadow-sm query-panel">
       <div className="panel-heading">
@@ -24,22 +31,22 @@ export default function QueryVectorPanel({ question, onQuestionChange }: QueryVe
           onChange={(_, data) => onQuestionChange(data.value)}
           aria-label="你的問題"
         />
-        <Button appearance="primary" icon={<ArrowUpRight20Regular />} aria-label="開始檢索">開始檢索</Button>
+        <Button appearance="primary" icon={<ArrowUpRight20Regular />} aria-label="開始檢索" onClick={onSearch}>開始檢索</Button>
       </div>
       <div className="vector-heading">
         <div><span className="tiny-label">QUESTION VECTOR</span><span className="vector-count">8 dimensions</span></div>
         <span className="vector-model">embedding · mock</span>
       </div>
       <div className="vector-grid">
-        {questionVector.map(([word, value], index) => (
+        {vectorDimensions.map((word, index) => (
           <div className="vector-cell" key={word}>
             <span className="vector-index">D{String(index + 1).padStart(2, '0')}</span>
             <span className="vector-word">{word}</span>
-            <strong>{value.toFixed(2)}</strong>
+            <strong>{(queryVector[index] ?? 0).toFixed(2)}</strong>
           </div>
         ))}
       </div>
-      <div className="vector-caption"><span className="accent-square" /> 語意特徵以示意數值呈現，不會呼叫 embedding 服務。</div>
+      <div className="vector-caption"><span className="accent-square" /> 以問題關鍵字建立 8 維示意向量，不會呼叫外部 embedding 服務。</div>
     </section>
   )
 }
