@@ -31,7 +31,7 @@ export default function DemoHeader({
         </div>
         <div className="topbar-right">
           <span className="live-dot" /> 靜態示範環境
-          <div className="avatar">林</div>
+          <div className="avatar">黃奕舜</div>
         </div>
       </header>
       <main className="page-shell">
@@ -52,7 +52,6 @@ export default function DemoHeader({
           <div className="hero-side">
             <div className="mode-switch" aria-label="模式切換">
               <button type="button" className="mode-button active" aria-pressed="true">演示模式</button>
-              <button type="button" className="mode-button" aria-pressed="false">闖關模式</button>
             </div>
             <label className="k-select-label" htmlFor="k-value">K 值
               <select

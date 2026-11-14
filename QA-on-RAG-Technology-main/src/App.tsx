@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Beaker20Regular } from '@fluentui/react-icons'
-import { documents, question as initialQuestion, scenarios, vectorDimensions, type TrainingScenario } from './data/ragDemo'
+import { documents, question as initialQuestion, scenarios, type TrainingScenario } from './data/ragDemo'
 import {
   embedQuestion,
   mockLlmAnswer,
@@ -53,7 +53,7 @@ export default function App() {
     setRetrieval((current) => ({
       ...current,
       question: searchQuestion,
-      queryVector: Array.from({ length: vectorDimensions.length }, () => 0),
+      queryVector: embedQuestion(searchQuestion),
       results: [],
       selectedDocuments: [],
       heap: [],

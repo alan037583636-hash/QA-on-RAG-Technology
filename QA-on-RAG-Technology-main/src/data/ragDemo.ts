@@ -17,65 +17,49 @@ export type TrainingScenario = {
 export const scenarios: TrainingScenario[] = [
   {
     id: 1,
-    title: '基本',
-    subtitle: '完整流程',
-    question: '請問新人報到時間是幾點？',
+    title: '門禁與遺失通報',
+    subtitle: '識別證遺失',
+    question: '我不小心把識別證弄掉了怎麼辦？',
     k: 2,
-    description: '最標準的檢索，精準配對到 D1。',
+    description: '測試 D3：關鍵字「識別證」「遺失」與補發流程相符。',
   },
   {
     id: 2,
-    title: '換句話',
-    subtitle: '字面不同',
-    question: '中午跟晚上什麼時候可以去吃飯？',
+    title: '無塵室規範',
+    subtitle: '香水與化妝',
+    question: '進無塵室可以稍微擦一點香水嗎？',
     k: 2,
-    description: '字面上沒有「餐廳」或「供餐」，但向量相似度能抓到 D4。',
+    description: '測試 D6：確認是否能抓到「嚴禁化妝與噴灑香水」。',
   },
   {
     id: 3,
-    title: '滿分',
-    subtitle: '第一名滿分',
-    question: '廠區可以帶有照相功能的手機嗎？',
+    title: '跨廠區交通',
+    subtitle: '高鐵接駁',
+    question: '請問高鐵站有車可以到 15A 廠區嗎？',
     k: 2,
-    description: '與 D2 高度吻合，相似度極高。',
+    description: '測試 D8：確認接駁車與 15A 廠區的正確對應。',
   },
   {
     id: 4,
-    title: '無關',
-    subtitle: '什麼都沒找到',
-    question: '台積電股票今天多少錢？',
+    title: '複合查詢',
+    subtitle: '報到與餐廳',
+    question: '請問報到時間是幾點？中午餐廳幾點開？',
     k: 2,
-    description: '相似度極低，全部被 Threshold 淘汰，回傳「找不到資料」。',
+    description: '測試動態 Top-k 是否能同時抓到 D1 與 D4。',
   },
   {
     id: 5,
-    title: '有資料沒答案',
-    subtitle: '相關但沒寫',
-    question: '請問員工餐廳有提供素食嗎？',
+    title: '資料外問題',
+    subtitle: '宿舍資訊',
+    question: '請問員工宿舍有提供雙人房嗎？',
     k: 2,
-    description: '能檢索到 D4，但資料內未提及素食，LLM 應回答「資料未提及」。',
-  },
-  {
-    id: 6,
-    title: 'k=1',
-    subtitle: '資料不夠',
-    question: '請問接駁車多久一班？機車停車要錢嗎？',
-    k: 1,
-    description: '問題包含兩個考點，但 k=1 只能抓到 D8 或 D7 其中一個，導致 LLM 回答不完整。',
-  },
-  {
-    id: 7,
-    title: 'k=2',
-    subtitle: '資料剛好',
-    question: '請問接駁車多久一班？機車停車要錢嗎？',
-    k: 2,
-    description: '同樣的問題，將 k 設為 2 後，D7 與 D8 皆入選，LLM 能給出完整答案。',
+    description: '測試 D10 但 Mock LLM 應依照資料判定「未提及」。',
   },
 ]
 
 export const question = scenarios[0].question
 
-export const vectorDimensions = ['報到', '時間', '錢', '設備', '規定', '地點', '證件', '餐飲'] as const
+export const vectorDimensions = ['char-bigram', 'tf-idf', 'keyword-overlap'] as const
 
 export const documents: KnowledgeDocument[] = [
   { id: 'D1', category: '報到資訊', content: '新人報到時間為第一天早上 08:30，請於 15A 廠區大廳交誼廳集合。', vector: [0.85, 0.85, 0, 0, 0.05, 0.7, 0.1, 0] },

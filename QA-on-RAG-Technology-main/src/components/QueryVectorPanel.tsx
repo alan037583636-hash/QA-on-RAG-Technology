@@ -1,6 +1,5 @@
 import { Button, Input, Spinner } from '@fluentui/react-components'
 import { ArrowUpRight20Regular, Sparkle20Regular } from '@fluentui/react-icons'
-import { vectorDimensions } from '../data/ragDemo'
 
 type QueryVectorPanelProps = {
   question: string
@@ -17,11 +16,13 @@ export default function QueryVectorPanel({
   onQuestionChange,
   onSearch,
 }: QueryVectorPanelProps) {
+  const featureCells = queryVector.length > 0 ? queryVector.slice(0, 6) : [0]
+
   return (
     <section className="panel bg-white shadow-sm query-panel">
       <div className="panel-heading">
         <div className="heading-icon blue"><Sparkle20Regular /></div>
-        <div><h2>查詢問題</h2><p>輸入問題，查看語意向量表示</p></div>
+        <div><h2>查詢問題</h2><p>輸入問題，查看字元 n-gram 特徵</p></div>
         <span className="step-pill">01 / QUERY</span>
       </div>
       <label className="field-label" htmlFor="question">自己問</label>
@@ -45,19 +46,19 @@ export default function QueryVectorPanel({
         </Button>
       </div>
       <div className="vector-heading">
-        <div><span className="tiny-label">QUESTION VECTOR</span><span className="vector-count">8 dimensions</span></div>
-        <span className="vector-model">embedding · mock</span>
+        <div><span className="tiny-label">CHAR N-GRAM TF-IDF</span><span className="vector-count">{featureCells.length} features</span></div>
+        <span className="vector-model">bigram · tfidf</span>
       </div>
       <div className="vector-grid">
-        {vectorDimensions.map((word, index) => (
-          <div className="vector-cell" key={word}>
-            <span className="vector-index">D{String(index + 1).padStart(2, '0')}</span>
-            <span className="vector-word">{word}</span>
-            <strong>{(queryVector[index] ?? 0).toFixed(2)}</strong>
+        {featureCells.map((value, index) => (
+          <div className="vector-cell" key={`${value}-${index}`}>
+            <span className="vector-index">F{String(index + 1).padStart(2, '0')}</span>
+            <span className="vector-word">char-{index + 1}</span>
+            <strong>{value.toFixed(2)}</strong>
           </div>
         ))}
       </div>
-      <div className="vector-caption"><span className="accent-square" /> 以問題關鍵字建立 8 維示意向量，不會呼叫外部 embedding 服務。</div>
+      <div className="vector-caption"><span className="accent-square" /> 使用字元 bi-gram TF-IDF 作為檢索特徵，避免僅用粗糙的 8 維關鍵字列舉。</div>
     </section>
   )
 }
