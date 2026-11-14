@@ -47,10 +47,14 @@ describe('RAG training demo', () => {
   it('retrieves the correct document for the lost identification card scenario', () => {
     const result = runRetrieval('我不小心把識別證弄掉了怎麼辦？', 2)
     expect(result.selectedDocuments[0]?.document.id).toBe('D3')
-    expect(result.selectedDocuments.map(({ document }) => document.id)).toContain('D6')
+    expect(result.selectedDocuments.map(({ document }) => document.id)).not.toContain('D5')
+    expect(result.selectedDocuments.map(({ document }) => document.id)).not.toContain('D6')
+    const answer = mockLlmAnswer('我不小心把識別證弄掉了怎麼辦？', result.selectedDocuments)
+    expect(answer).toContain('D3')
+    expect(answer).not.toContain('D6')
   })
 
-  it('keeps high-signal matches while pruning distracting low-score documents with the dynamic top-k window', () => {
+  it('keeps high-signal matches while pruning distracting documents with the 70% top-score cutoff', () => {
     const missingId = runRetrieval('我不小心把識別證弄掉了怎麼辦？', 2)
     const dustRoom = runRetrieval('進無塵室可以稍微擦一點香水嗎？', 2)
     const transit = runRetrieval('請問高鐵站有車可以到 15A 廠區嗎？', 2)
@@ -63,10 +67,54 @@ describe('RAG training demo', () => {
     expect(combined.selectedDocuments.map(({ document }) => document.id)).toContain('D4')
   })
 
-  it('returns the generic “資料未提及” message when the selected docs do not cover the asked detail', () => {
+  it('validates topic and detail separately and declines unsupported details', () => {
     const result = runRetrieval('請問員工宿舍有提供雙人房嗎？', 2)
-    expect(result.selectedDocuments[0]?.document.id).toBe('D10')
-    expect(mockLlmAnswer('請問員工宿舍有提供雙人房嗎？', result.selectedDocuments)).toBe('根據現有資料，未提及相關資訊。')
+    expect(result.selectedDocuments.map(({ document }) => document.id)).toContain('D10')
+    expect(mockLlmAnswer('宿舍一個月多少錢？', result.selectedDocuments)).toContain('2500 元')
+    expect(mockLlmAnswer('請問員工宿舍有提供雙人房嗎？', result.selectedDocuments))
+      .toBe('根據現有資料，未提及相關細節資訊。')
+    const dining = runRetrieval('請問員工餐廳有提供素食嗎？', 2)
+    expect(mockLlmAnswer('請問員工餐廳有提供素食嗎？', dining.selectedDocuments))
+      .toBe('根據現有資料，未提及相關細節資訊。')
+    expect(mockLlmAnswer('請問公司有游泳池嗎？', result.selectedDocuments)).toBe('根據現有資料，未提及相關資訊。')
+  })
+
+  it('passes ten synonym-aware retrieval and answer cases without unrelated documents', () => {
+    const cases = [
+      { question: '中午跟晚上什麼時候可以去吃飯？', documentIds: ['D4'], excludedIds: ['D1', 'D2', 'D3', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10'] },
+      { question: '宿舍一個月多少錢？', documentIds: ['D10'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9'] },
+      { question: '新人報到要帶什麼文件？', documentIds: ['D9'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D10'] },
+      { question: '識別證掉了怎麼辦？', documentIds: ['D3'], excludedIds: ['D1', 'D2', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10'] },
+      { question: '進無塵室可以稍微擦一點香水嗎？', documentIds: ['D6'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D7', 'D8', 'D9', 'D10'] },
+      { question: '請問高鐵站有車可以到 15A 廠區嗎？', documentIds: ['D8'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D9', 'D10'] },
+      { question: '請問報到時間是幾點？中午餐廳幾點開？', documentIds: ['D1', 'D4'], excludedIds: ['D2', 'D3', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10'] },
+      { question: '機車停車要多少錢？', documentIds: ['D7'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D8', 'D9', 'D10'] },
+      { question: '廠區可以帶有照相功能的手機嗎？', documentIds: ['D2'], excludedIds: ['D1', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10'] },
+      { question: '接駁車多久一班？', documentIds: ['D8'], excludedIds: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D9', 'D10'] },
+    ]
+
+    for (const { question, documentIds, excludedIds } of cases) {
+      const result = runRetrieval(question, 3)
+      const selectedIds = result.selectedDocuments.map(({ document }) => document.id)
+      const answer = mockLlmAnswer(question, result.selectedDocuments)
+
+      expect(result.threshold).toBeCloseTo(Math.max(0.03, result.maxScore * 0.7))
+      expect(result.selectedDocuments.every(({ score }) => score >= result.threshold)).toBe(true)
+      for (const documentId of documentIds) {
+        expect(selectedIds, question).toContain(documentId)
+      }
+      for (const documentId of excludedIds) {
+        expect(selectedIds, question).not.toContain(documentId)
+      }
+      expect(answer, question).not.toContain('未提及')
+    }
+  })
+
+  it('uses non-saturated pure TF-IDF cosine scores for retrieval ranking', () => {
+    const result = runRetrieval('新人報到要帶什麼文件？', 3)
+    expect(result.results[0]?.document.id).toBe('D9')
+    expect(result.results.every(({ score }) => score >= 0 && score < 1)).toBe(true)
+    expect(result.results[0]?.score).toBeGreaterThan(result.results.find(({ document }) => document.id === 'D1')?.score ?? 0)
   })
 
   it('locks controls during an animated search and then restores them after completion', async () => {

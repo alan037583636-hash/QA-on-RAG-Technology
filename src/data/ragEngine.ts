@@ -4,10 +4,34 @@ const STOP_WORDS = new Set([
   '的', '了', '是', '嗎', '請', '問', '我', '你', '他', '她', '它', '在', '與', '和', '也', '可', '可否', '可以', '是否',
   '到', '這', '那', '哪', '什麼', '怎麼', '為', '因', '稍微', '有', '沒', '能', '會', '要', '但', '並', '如果', '一點',
   '請問', '多少', '幾點', '多久', '什麼時候', '哪裡', '有沒有', '怎樣', '怎麼樣', '員工', '提供', '可以', '能否',
+  '跟', '去', '什麼', '當日',
 ])
 
-const TOP_SCORE_WINDOW = 0.15
-export const SIMILARITY_THRESHOLD = 0.4
+export const synonyms: Readonly<Record<string, readonly string[]>> = {
+  '吃飯': ['供餐', '餐點', '餐廳', '午餐', '晚餐'],
+  '多少錢': ['元', '費用', '收費', '錢'],
+  '文件': ['畢業證書', '身分證件', '應備文件'],
+  '掉了': ['遺失', '補發', '不見'],
+}
+
+const TOP_SCORE_RATIO = 0.7
+export const SIMILARITY_THRESHOLD = 0.03
+
+const QUESTION_TOPICS = [
+  { id: 'dormitory', questionTerms: ['宿舍'], documentTerms: ['宿舍'] },
+  { id: 'dining', questionTerms: ['餐廳', '午餐', '晚餐', '吃飯', '用餐', '供餐'], documentTerms: ['餐廳', '午餐', '晚餐', '供餐', '餐點'] },
+  { id: 'parking', questionTerms: ['停車', '機車', '汽車'], documentTerms: ['停車', '機車', '汽車'] },
+  { id: 'onboarding', questionTerms: ['報到', '新人'], documentTerms: ['報到', '新人'] },
+  { id: 'badge', questionTerms: ['識別證'], documentTerms: ['識別證'] },
+] as const
+
+const DETAIL_KEYWORDS = [
+  { terms: ['雙人房'], synonyms: ['雙人房', '兩人房', '雙床房'], topicIds: ['dormitory'] },
+  { terms: ['素食'], synonyms: ['素食', '蔬食'], topicIds: ['dining'] },
+  { terms: ['多少錢', '費用', '收費', '價錢', '價格'], synonyms: ['元', '費用', '收費', '免費', '價格', '金額'], topicIds: ['dormitory', 'dining', 'parking', 'badge'] },
+  { terms: ['文件'], synonyms: ['應備文件', '畢業證書', '身分證件', '文件'], topicIds: ['onboarding'] },
+  { terms: ['掉了', '不見', '遺失'], synonyms: ['遺失', '補發', '不見'], topicIds: ['badge'] },
+] as const
 
 export type RankedDocument = {
   document: KnowledgeDocument
@@ -23,7 +47,7 @@ export type ExecutionStep = {
 
 export type RetrievalRun = {
   question: string
-  queryVector: number[]
+  queryVectors: number[][]
   results: RankedDocument[]
   selectedDocuments: RankedDocument[]
   heap: RankedDocument[]
@@ -35,7 +59,7 @@ export type RetrievalRun = {
 
 export type RetrievalAnalysis = {
   question: string
-  queryVector: number[]
+  queryVectors: number[][]
   scoredDocuments: RankedDocument[]
   k: number
   maxScore: number
@@ -79,6 +103,26 @@ function buildCharacterBigrams(value: string): string[] {
   return grams
 }
 
+function buildQuestionBigrams(question: string): string[][] {
+  const stopWords = Array.from(STOP_WORDS).sort((left, right) => right.length - left.length)
+  const clauses = question.split(/[？?。！!；;\n]+/)
+
+  return clauses.flatMap((clause) => {
+    const normalizedClause = normalizeText(clause)
+    let cleanedClause = normalizedClause
+    for (const stopWord of stopWords) {
+      cleanedClause = cleanedClause.replace(new RegExp(stopWord, 'g'), '')
+    }
+
+    if (!cleanedClause) return []
+
+    const expansions = Object.entries(synonyms)
+      .filter(([phrase]) => normalizedClause.includes(normalizeText(phrase)))
+      .flatMap(([, alternatives]) => alternatives.map(normalizeText))
+    return [buildCharacterBigrams(`${cleanedClause}${expansions.join('')}`)]
+  })
+}
+
 function getCoreQuestionTerms(question: string): string[] {
   let cleaned = normalizeText(question)
   const stopWords = Array.from(STOP_WORDS).sort((left, right) => right.length - left.length)
@@ -101,69 +145,144 @@ function getCoreQuestionTerms(question: string): string[] {
   return Array.from(uniqueTerms).sort((left, right) => right.length - left.length).slice(0, 40)
 }
 
-function getCorpusVocabulary(corpus: string[]): string[] {
+function getCorpusVocabulary(question: string): string[] {
   const vocabulary = new Set<string>()
 
-  for (const text of corpus) {
-    for (const gram of buildCharacterBigrams(text)) {
-      if (gram.length >= 2) {
-        vocabulary.add(gram)
-      }
+  for (const clauseGrams of buildQuestionBigrams(question)) {
+    for (const gram of clauseGrams) {
+      vocabulary.add(gram)
+    }
+  }
+  for (const { content } of documents) {
+    for (const gram of buildCharacterBigrams(content)) {
+      vocabulary.add(gram)
     }
   }
 
   return Array.from(vocabulary)
 }
 
-function buildTfIdfVector(targetText: string, vocabulary: string[], corpus: string[]): number[] {
-  if (vocabulary.length === 0) return []
-
-  const tfMap = new Map<string, number>()
-  const totalGrams = buildCharacterBigrams(targetText).length || 1
-
-  for (const gram of buildCharacterBigrams(targetText)) {
-    tfMap.set(gram, (tfMap.get(gram) ?? 0) + 1)
-  }
-
+function getDocumentFrequencies(): Map<string, number> {
   const documentFrequency = new Map<string, number>()
-  for (const text of corpus) {
+  for (const { content } of documents) {
     const seen = new Set<string>()
-    for (const gram of buildCharacterBigrams(text)) {
+    for (const gram of buildCharacterBigrams(content)) {
       if (!seen.has(gram)) {
         seen.add(gram)
         documentFrequency.set(gram, (documentFrequency.get(gram) ?? 0) + 1)
       }
     }
   }
-
-  return vocabulary.map((term) => {
-    const termFrequency = tfMap.get(term) ?? 0
-    const docFrequency = documentFrequency.get(term) ?? 0
-    const tf = termFrequency / totalGrams
-    const idf = Math.log((corpus.length + 1) / (docFrequency + 1)) + 1
-    return tf * idf
-  })
+  return documentFrequency
 }
 
-function keywordOverlapRatio(question: string, content: string): number {
-  const questionTerms = getCoreQuestionTerms(question)
-  if (questionTerms.length === 0) return 0
+function buildTfIdfVector(
+  text: string,
+  vocabulary: string[],
+  documentFrequency: Map<string, number>,
+  isQuestion = false,
+): number[] {
+  if (vocabulary.length === 0) return []
 
+  const gramGroups = isQuestion ? buildQuestionBigrams(text) : [buildCharacterBigrams(text)]
+  const clauseVectors = gramGroups.map((grams) => {
+    const counts = new Map<string, number>()
+    for (const gram of grams) {
+      counts.set(gram, (counts.get(gram) ?? 0) + 1)
+    }
+
+    const vector = vocabulary.map((term) => {
+      const termFrequency = (counts.get(term) ?? 0) / (grams.length || 1)
+      const frequency = documentFrequency.get(term) ?? 0
+      const inverseDocumentFrequency = Math.log((documents.length + 1) / (frequency + 1)) + 1
+      return termFrequency * inverseDocumentFrequency
+    })
+    const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0))
+    return magnitude === 0 ? vector : vector.map((value) => value / magnitude)
+  })
+
+  return vocabulary.map((_, index) =>
+    clauseVectors.reduce((sum, vector) => sum + (vector[index] ?? 0), 0) / (clauseVectors.length || 1),
+  )
+}
+
+export function getQuestionFeatureTerms(question: string): string[] {
+  return getCorpusVocabulary(question)
+}
+
+export function getQuestionFeatureVectors(question: string): number[][] {
+  return getQuestionDocumentVectors(question).queryVectors
+}
+
+function getQuestionDocumentVectors(question: string): {
+  queryVectors: number[][]
+  documentVectors: number[][]
+} {
+  const vocabulary = getCorpusVocabulary(question)
+  const documentFrequency = getDocumentFrequencies()
+  const clauses = question.split(/[？?。！!；;\n]+/).filter((clause) => normalizeText(clause))
+  const clauseVectors = (clauses.length > 0 ? clauses : [question])
+    .map((clause) => buildTfIdfVector(clause, vocabulary, documentFrequency, true))
+  const documentVectors = documents.map(({ content }) => buildTfIdfVector(content, vocabulary, documentFrequency))
+
+  return {
+    queryVectors: clauseVectors,
+    documentVectors,
+  }
+}
+
+function getMatchedQuestionTerms(question: string, content: string): string[] {
+  const normalizedQuestion = normalizeText(question)
   const normalizedContent = normalizeText(content)
-  let matched = 0
-  for (const term of questionTerms) {
-    if (normalizedContent.includes(term)) {
-      matched += 1
+  const activeSynonymGroups = Object.entries(synonyms).filter(([phrase]) =>
+    normalizedQuestion.includes(normalizeText(phrase)),
+  )
+
+  if (activeSynonymGroups.length > 0) {
+    const allGroupsMatched = activeSynonymGroups.every(([, alternatives]) =>
+      alternatives.some((alternative) => normalizedContent.includes(normalizeText(alternative))),
+    )
+    if (!allGroupsMatched) return []
+  }
+
+  const terms = new Set(getCoreQuestionTerms(question))
+
+  for (const [phrase, alternatives] of activeSynonymGroups) {
+    if (normalizedQuestion.includes(normalizeText(phrase))) {
+      terms.add(normalizeText(phrase))
+      for (const alternative of alternatives) {
+        terms.add(normalizeText(alternative))
+      }
     }
   }
 
-  return matched / questionTerms.length
+  return Array.from(terms).filter((term) => term && normalizedContent.includes(term))
 }
 
-export function embedQuestion(question: string): number[] {
-  const corpus = [question, ...documents.map(({ content }) => content)]
-  const vocabulary = getCorpusVocabulary(corpus)
-  return buildTfIdfVector(question, vocabulary, corpus)
+function getDetailMatch(
+  question: string,
+  content: string,
+): { asked: false } | { asked: true; matched: boolean } {
+  const normalizedQuestion = normalizeText(question)
+  const detail = DETAIL_KEYWORDS.find(({ terms }) =>
+    terms.some((term) => normalizedQuestion.includes(normalizeText(term))),
+  )
+
+  if (!detail) return { asked: false }
+
+  const normalizedContent = normalizeText(content)
+  const questionTopics = QUESTION_TOPICS.filter(({ id, questionTerms }) =>
+    detail.topicIds.includes(id) &&
+    questionTerms.some((term) => normalizedQuestion.includes(normalizeText(term))),
+  )
+  const topicMatched = questionTopics.some(({ documentTerms }) =>
+    documentTerms.some((term) => normalizedContent.includes(normalizeText(term))),
+  )
+  const detailMatched = detail.synonyms.some((term) =>
+    normalizedContent.includes(normalizeText(term)),
+  )
+
+  return { asked: true, matched: topicMatched && detailMatched }
 }
 
 export function cosineSimilarity(left: readonly number[], right: readonly number[]): number {
@@ -187,105 +306,35 @@ export function cosineSimilarity(left: readonly number[], right: readonly number
   return dotProduct / Math.sqrt(leftMagnitudeSquared * rightMagnitudeSquared)
 }
 
-function computeCharBigramSimilarity(question: string, content: string): number {
-  const normalizedQuestion = normalizeText(question)
-  const normalizedContent = normalizeText(content)
-  const questionBigrams = buildCharacterBigrams(normalizedQuestion)
-  const contentBigrams = buildCharacterBigrams(normalizedContent)
-
-  if (questionBigrams.length === 0 || contentBigrams.length === 0) {
-    return 0
-  }
-
-  const questionCounts = new Map<string, number>()
-  const contentCounts = new Map<string, number>()
-  for (const gram of questionBigrams) {
-    questionCounts.set(gram, (questionCounts.get(gram) ?? 0) + 1)
-  }
-  for (const gram of contentBigrams) {
-    contentCounts.set(gram, (contentCounts.get(gram) ?? 0) + 1)
-  }
-
-  const vocabulary = Array.from(new Set([...questionBigrams, ...contentBigrams]))
-
-  let dotProduct = 0
-  let questionMagnitudeSquared = 0
-  let contentMagnitudeSquared = 0
-
-  for (const gram of vocabulary) {
-    const questionWeight = (questionCounts.get(gram) ?? 0) / questionBigrams.length
-    const contentWeight = (contentCounts.get(gram) ?? 0) / contentBigrams.length
-
-    dotProduct += questionWeight * contentWeight
-    questionMagnitudeSquared += questionWeight * questionWeight
-    contentMagnitudeSquared += contentWeight * contentWeight
-  }
-
-  const cosine = questionMagnitudeSquared === 0 || contentMagnitudeSquared === 0
-    ? 0
-    : dotProduct / (Math.sqrt(questionMagnitudeSquared) * Math.sqrt(contentMagnitudeSquared))
-
-  const questionTerms = getCoreQuestionTerms(question)
-  const overlapRatio = questionTerms.length === 0
-    ? 0
-    : questionTerms.filter((term) => normalizedContent.includes(term)).length / questionTerms.length
-
-  const lexicalAnchors = new Set<string>()
-  for (let length = 2; length <= Math.min(5, normalizedQuestion.length); length += 1) {
-    for (let index = 0; index + length <= normalizedQuestion.length; index += 1) {
-      const chunk = normalizedQuestion.slice(index, index + length)
-      if (chunk.length >= 2 && !STOP_WORDS.has(chunk)) {
-        lexicalAnchors.add(chunk)
-      }
-    }
-  }
-  const anchorOverlap = lexicalAnchors.size === 0
-    ? 0
-    : Array.from(lexicalAnchors).filter((term) => normalizedContent.includes(term)).length / lexicalAnchors.size
-
-  const directPhraseWeight = questionTerms.some((term) => normalizedContent.includes(term)) ? 0.4 : 0
-  const exactAnchorMatches = Array.from(lexicalAnchors).filter((term) => normalizedContent.includes(term))
-  const anchorMatchBonus = exactAnchorMatches.length === 0
-    ? 0
-    : Math.min(0.45, exactAnchorMatches.length * 0.18 + 0.12)
-  const finalScore = Math.min(1, cosine * 0.55 + overlapRatio * 0.2 + anchorOverlap * 0.45 + directPhraseWeight + anchorMatchBonus)
-
-  return Number(finalScore.toFixed(4))
-}
-
 export function scoreDocuments(
   question: string,
-  queryVector: number[],
   requestedK: number,
 ): RetrievalAnalysis {
   const k = Math.max(1, Math.floor(requestedK))
-  const corpus = [question, ...documents.map(({ content }) => content)]
-  const vocabulary = getCorpusVocabulary(corpus)
-  const queryFeatureVector = queryVector.length > 0 ? queryVector : buildTfIdfVector(question, vocabulary, corpus)
-
-  const scoredDocuments = documents.map((document) => {
-    const score = computeCharBigramSimilarity(question, document.content)
-    return {
-      document,
-      score,
-      selected: false,
-    }
-  })
+  const { queryVectors, documentVectors } = getQuestionDocumentVectors(question)
+  const scoredDocuments = documents.map((document, index) => ({
+    document,
+    score: Math.max(
+      0,
+      ...queryVectors.map((clauseVector) => cosineSimilarity(clauseVector, documentVectors[index] ?? [])),
+    ),
+    selected: false,
+  }))
 
   const maxScore = Math.max(0, ...scoredDocuments.map(({ score }) => score))
 
   return {
     question,
-    queryVector: queryFeatureVector,
+    queryVectors,
     scoredDocuments,
     k,
     maxScore,
-    threshold: SIMILARITY_THRESHOLD,
+    threshold: Math.max(SIMILARITY_THRESHOLD, maxScore * TOP_SCORE_RATIO),
   }
 }
 
 export function analyzeQuestion(question: string, requestedK: number): RetrievalAnalysis {
-  return scoreDocuments(question, embedQuestion(question), requestedK)
+  return scoreDocuments(question, requestedK)
 }
 
 export function* simulateTopK(
@@ -380,12 +429,11 @@ export function* simulateTopK(
   }
 
   const ranked = [...scoredDocuments].sort((left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id))
-  const topScore = ranked[0]?.score ?? 0
-  const minimumAllowedScore = Math.max(SIMILARITY_THRESHOLD, topScore - TOP_SCORE_WINDOW)
+  const topScore = Math.max(0, ...heap.map(({ score }) => score))
+  const minimumAllowedScore = Math.max(SIMILARITY_THRESHOLD, topScore * TOP_SCORE_RATIO)
   const selectedIds = new Set(
-    ranked
+    heap
       .filter(({ score }) => score >= minimumAllowedScore && score >= SIMILARITY_THRESHOLD)
-      .slice(0, k)
       .map(({ document }) => document.id),
   )
 
@@ -393,7 +441,9 @@ export function* simulateTopK(
     .sort((left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id))
     .map((result) => ({ ...result, selected: selectedIds.has(result.document.id) }))
   const selectedDocuments = results.filter(({ selected }) => selected)
-  const finalHeap = ranked.filter(({ document }) => selectedIds.has(document.id))
+  const finalHeap = heap
+    .filter(({ document }) => selectedIds.has(document.id))
+    .sort((left, right) => left.score - right.score || left.document.id.localeCompare(right.document.id))
 
   const promptLog = createLog(
     'PROMPT',
@@ -427,22 +477,30 @@ export function mockLlmAnswer(question: string, selectedDocuments: RankedDocumen
     return '找不到符合相似度門檻的資料，請改寫問題或補充知識庫內容。'
   }
 
-  const questionKeywords = getCoreQuestionTerms(question)
-  const priorityKeywords = questionKeywords.filter((term) => term.length >= 3)
+  const detailResults = selectedDocuments.map((rankedDocument) => ({
+    rankedDocument,
+    detailMatch: getDetailMatch(question, rankedDocument.document.content),
+  }))
+  const hasDetailQuestion = detailResults.some(({ detailMatch }) => detailMatch.asked)
+
+  if (hasDetailQuestion) {
+    const detailDocuments = detailResults
+      .filter(({ detailMatch }) => detailMatch.asked && detailMatch.matched)
+      .map(({ rankedDocument }) => rankedDocument)
+
+    if (detailDocuments.length === 0) {
+      return '根據現有資料，未提及相關細節資訊。'
+    }
+
+    const documentIds = detailDocuments.map(({ document }) => document.id).join('、')
+    const content = detailDocuments
+      .map(({ document }) => `${document.content}［${document.id}］`)
+      .join(' ')
+    return `依據 ${documentIds} 的內容，相關資訊整理如下：${content}`
+  }
 
   const candidateDocs = selectedDocuments.filter(({ document }) => {
-    const content = normalizeText(document.content)
-    const matchedTerms = questionKeywords.filter((term) => content.includes(term))
-
-    if (matchedTerms.length >= 2) {
-      return true
-    }
-
-    if (priorityKeywords.length > 0) {
-      return priorityKeywords.some((term) => content.includes(term))
-    }
-
-    return matchedTerms.some((term) => term.length >= 3)
+    return getMatchedQuestionTerms(question, document.content).length > 0
   })
 
   if (candidateDocs.length === 0) {
@@ -463,7 +521,7 @@ export function runRetrieval(question: string, requestedK: number): RetrievalRun
 
   return {
     question,
-    queryVector: analysis.queryVector,
+    queryVectors: analysis.queryVectors,
     results: plan.results,
     selectedDocuments: plan.selectedDocuments,
     heap: plan.heap,

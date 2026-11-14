@@ -15,14 +15,14 @@ export default function MinHeapPanel({ heap, k }: MinHeapPanelProps) {
       <div className="heap-root-label">
         <span className="root-dot" />
         堆頂 · 目前最小分數
-        <b>{root ? root.score.toFixed(2) : '—'}</b>
+        <b>{root ? root.score.toFixed(4) : '—'}</b>
       </div>
       <div className="heap-tree" aria-label="最小堆陣列">
         {heap.length > 0 ? heap.map(({ document, score }, index) => (
           <div className={`heap-node ${index === 0 ? 'root-node' : 'child-node'}`} key={document.id}>
             <small className="heap-array-index">索引 {index}</small>
             <span className="heap-doc">{document.id}</span>
-            <strong>{score.toFixed(2)}</strong>
+            <strong>{score.toFixed(4)}</strong>
             <small>{index === 0 ? '堆頂' : '資料'}</small>
           </div>
         )) : <p className="heap-empty">沒有文件通過相似度門檻</p>}

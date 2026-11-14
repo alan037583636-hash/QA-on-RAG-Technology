@@ -33,7 +33,7 @@ export default function KnowledgeBasePanel({ results, threshold, selectionReady 
             <div className="score-row">
               <span>相似度</span>
               <div className="score-track"><i style={{ width: `${score * 100}%` }} /></div>
-              <strong className={selected ? 'score-selected' : ''}>{score.toFixed(2)}</strong>
+              <strong className={selected ? 'score-selected' : ''}>{score.toFixed(4)}</strong>
               {selected && <span className="retrieved-tag">TOP-K</span>}
             </div>
           </article>

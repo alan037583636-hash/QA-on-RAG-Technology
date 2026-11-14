@@ -1,9 +1,10 @@
 import { Button, Input, Spinner } from '@fluentui/react-components'
 import { ArrowUpRight20Regular, Sparkle20Regular } from '@fluentui/react-icons'
+import { getQuestionFeatureTerms } from '../data/ragEngine'
 
 type QueryVectorPanelProps = {
   question: string
-  queryVector: number[]
+  queryVectors: number[][]
   isSearching: boolean
   onQuestionChange: (value: string) => void
   onSearch: () => void
@@ -11,12 +12,20 @@ type QueryVectorPanelProps = {
 
 export default function QueryVectorPanel({
   question,
-  queryVector,
+  queryVectors,
   isSearching,
   onQuestionChange,
   onSearch,
 }: QueryVectorPanelProps) {
-  const featureCells = queryVector.length > 0 ? queryVector.slice(0, 6) : [0]
+  const featureTerms = getQuestionFeatureTerms(question)
+  const featureCells = queryVectors.map((queryVector) =>
+    queryVector
+      .flatMap((value, index) => value > 0
+        ? [{ term: featureTerms[index] ?? `feature-${index + 1}`, value, index }]
+        : [])
+      .slice(0, 6),
+  )
+  const visibleFeatureCount = featureCells.reduce((sum, cells) => sum + cells.length, 0)
 
   return (
     <section className="panel bg-white shadow-sm query-panel">
@@ -46,19 +55,21 @@ export default function QueryVectorPanel({
         </Button>
       </div>
       <div className="vector-heading">
-        <div><span className="tiny-label">CHAR N-GRAM TF-IDF</span><span className="vector-count">{featureCells.length} features</span></div>
+        <div><span className="tiny-label">CHAR N-GRAM TF-IDF</span><span className="vector-count">{queryVectors.length} 個子問題 · 顯示 {visibleFeatureCount} 個特徵</span></div>
         <span className="vector-model">bigram · tfidf</span>
       </div>
-      <div className="vector-grid">
-        {featureCells.map((value, index) => (
-          <div className="vector-cell" key={`${value}-${index}`}>
-            <span className="vector-index">F{String(index + 1).padStart(2, '0')}</span>
-            <span className="vector-word">char-{index + 1}</span>
-            <strong>{value.toFixed(2)}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="vector-caption"><span className="accent-square" /> 使用字元 bi-gram TF-IDF 作為檢索特徵，避免僅用粗糙的 8 維關鍵字列舉。</div>
+      {featureCells.length > 0 ? featureCells.map((cells, clauseIndex) => (
+        <div className="vector-grid" key={`clause-${clauseIndex}`} aria-label={`子問題 ${clauseIndex + 1} 的 TF-IDF 特徵`}>
+          {cells.map(({ term, value, index }) => (
+            <div className="vector-cell" key={`${term}-${index}`}>
+              <span className="vector-index">F{String(index + 1).padStart(2, '0')}</span>
+              <span className="vector-word">{term}</span>
+              <strong>{value.toFixed(4)}</strong>
+            </div>
+          ))}
+        </div>
+      )) : <span className="vector-word">輸入問題後顯示特徵</span>}
+      <div className="vector-caption"><span className="accent-square" /> 顯示每個子問題實際用於 TF-IDF 餘弦計分的特徵與權重。</div>
     </section>
   )
 }

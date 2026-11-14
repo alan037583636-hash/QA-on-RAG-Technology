@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Beaker20Regular } from '@fluentui/react-icons'
 import { documents, question as initialQuestion, scenarios, type TrainingScenario } from './data/ragDemo'
 import {
-  embedQuestion,
+  getQuestionFeatureVectors,
   mockLlmAnswer,
   runRetrieval,
   scoreDocuments,
@@ -53,7 +53,7 @@ export default function App() {
     setRetrieval((current) => ({
       ...current,
       question: searchQuestion,
-      queryVector: embedQuestion(searchQuestion),
+      queryVectors: getQuestionFeatureVectors(searchQuestion),
       results: [],
       selectedDocuments: [],
       heap: [],
@@ -68,15 +68,10 @@ export default function App() {
 
     try {
       await delay(600)
-      const queryVector = embedQuestion(searchQuestion)
-      setRetrieval((current) => ({
-        ...current,
-        queryVector,
-        phase: 'scoring',
-      }))
-
+      setRetrieval((current) => ({ ...current, phase: 'scoring' }))
       await delay(600)
-      const analysis = scoreDocuments(searchQuestion, queryVector, searchK)
+      const analysis = scoreDocuments(searchQuestion, searchK)
+      setRetrieval((current) => ({ ...current, queryVectors: analysis.queryVectors }))
       const sortedScores = [...analysis.scoredDocuments].sort(
         (left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id),
       )
@@ -171,12 +166,25 @@ export default function App() {
           <div className="left-column">
             <QueryVectorPanel
               question={question}
-              queryVector={retrieval.queryVector}
+              queryVectors={retrieval.queryVectors}
               isSearching={isSearching}
               onSearch={() => void handleSearch(question, k)}
               onQuestionChange={(value) => {
                 setQuestion(value)
                 setActiveScenarioId(null)
+                setRetrieval((current) => ({
+                  ...current,
+                  question: value,
+                  queryVectors: getQuestionFeatureVectors(value),
+                  results: [],
+                  selectedDocuments: [],
+                  heap: [],
+                  logs: [],
+                  maxScore: 0,
+                  checkedCount: 0,
+                  excludedCount: 0,
+                  answer: '',
+                }))
               }}
             />
             <KnowledgeBasePanel
